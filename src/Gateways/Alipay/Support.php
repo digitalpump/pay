@@ -58,7 +58,9 @@ class Support
      */
     private function __construct(Config $config)
     {
-        $this->baseUri = Alipay::URL[$config->get('mode', Alipay::MODE_NORMAL)];
+        if(empty($config['http_charset'])) $config['http_charset'] = 'utf-8';
+        //增加在配置文件中指定请求ali接口的http body 编码格式
+        $this->baseUri = Alipay::URL[$config->get('mode', Alipay::MODE_NORMAL)] . "?charset=" . $config['http_charset'];
         $this->config = $config;
 
         $this->setHttpOptions();
@@ -129,9 +131,13 @@ class Support
             return ($value == '' || is_null($value)) ? false : true;
         });
 
-        $result = mb_convert_encoding(self::$instance->post('', $data), 'utf-8', 'gb2312');
-        $result = json_decode($result, true);
-
+        //不需要转码
+        $response = self::getInstance()->post('', $data);
+        //$result = mb_convert_encoding(self::$instance->post('', $data), 'utf-8', 'gb2312');
+        $result = json_decode($response, true);
+        if(empty($result)) {
+            throw new InvalidArgumentException('Get Alipay API json decode FAILED',$response);
+        }
         Events::dispatch(Events::API_REQUESTED, new Events\ApiRequested('Alipay', '', self::$instance->getBaseUri(), $result));
 
         $method = str_replace('.', '_', $data['method']).'_response';
